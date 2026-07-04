@@ -23,8 +23,6 @@ def handler(event, context):
     if not item_id:
         return _response(400, {"error": "Path parameter 'id' is required"})
 
-    # Check existence first so we can return a proper 404 instead of a silent no-op.
-    # DynamoDB's delete_item doesn't error if the key doesn't exist by default.
     existing = table.get_item(Key={"id": item_id})
     if "Item" not in existing:
         return _response(404, {"error": f"No to-do item found with id '{item_id}'"})
@@ -40,6 +38,11 @@ def handler(event, context):
 def _response(status_code, body_dict):
     return {
         "statusCode": status_code,
-        "headers": {"Content-Type": "application/json"},
+        "headers": {
+            "Content-Type": "application/json",
+            "Strict-Transport-Security": "max-age=63072000; includeSubDomains",
+            "X-Content-Type-Options": "nosniff",
+            "Cross-Origin-Resource-Policy": "cross-origin",
+        },
         "body": json.dumps(body_dict),
     }

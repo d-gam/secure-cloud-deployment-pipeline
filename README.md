@@ -336,6 +336,38 @@ more representative security scan result to talk about in interviews.
 
 ---
 
+### Step 13 — First ZAP scan results and remediation (✅ done)
+
+First scan completed with a clean result: **0 High, 0 Medium, 3 Low, 2 Informational** findings.
+No serious vulnerabilities — expected, given AWS API Gateway's solid defaults — but the 3 Low
+findings were real and worth fixing rather than just documenting.
+
+**Findings (all missing security response headers):**
+1. `Cross-Origin-Resource-Policy` header missing
+2. `Strict-Transport-Security` (HSTS) header not set
+3. `X-Content-Type-Options` header missing
+
+**Remediation**: added all three headers to the response of every Lambda function
+(`create_todo.py`, `list_todos.py`, `delete_todo.py`).
+
+**One deliberate deviation from ZAP's literal suggestion, worth explaining in interviews**: ZAP's
+own documentation for `Cross-Origin-Resource-Policy` recommends `same-origin`. This project's API
+Gateway CORS configuration (`api_gateway.tf`) intentionally sets `allow_origins = ["*"]`, because
+the API is meant to be callable from any front-end origin (e.g. a future separate front-end app).
+Setting `Cross-Origin-Resource-Policy: same-origin` would directly contradict that and break
+legitimate cross-origin usage. Used `cross-origin` instead — the correct value for a resource
+that's intentionally meant to be shared across origins. This is a good example of why security
+tool output needs to be interpreted in the context of the actual system, not applied blindly.
+
+**Also noted**: one of the two initial GitHub Actions runs for this workflow failed while the
+other (same commit) passed — investigated as a transient CI issue rather than a real security
+failure, since the report from the successful run showed a clean, complete scan.
+
+This closes the loop on the security portion of the project: found → understood → fixed →
+documented, with the reasoning behind the fix, not just the fix itself.
+
+---
+
 ## Cost Safety Notes
 - AWS Budget alert set at $1 threshold (to be configured in Step 1)
 - `terraform destroy` run between active demo/work sessions

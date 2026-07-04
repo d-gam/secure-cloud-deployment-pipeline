@@ -16,14 +16,16 @@ table = dynamodb.Table(os.environ["TABLE_NAME"])
 
 
 def handler(event, context):
-    # Note: table.scan() reads the entire table. That's fine at this project's scale
-    # (a portfolio to-do app), but in a production system with a large table you'd
-    # want a Query with an index instead, to avoid high read costs and latency.
     result = table.scan()
     items = result.get("Items", [])
 
     return {
         "statusCode": 200,
-        "headers": {"Content-Type": "application/json"},
+        "headers": {
+            "Content-Type": "application/json",
+            "Strict-Transport-Security": "max-age=63072000; includeSubDomains",
+            "X-Content-Type-Options": "nosniff",
+            "Cross-Origin-Resource-Policy": "cross-origin",
+        },
         "body": json.dumps(items),
     }

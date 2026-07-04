@@ -25,9 +25,6 @@ def handler(event, context):
 
     title = body.get("title", "").strip()
 
-    # --- Input validation (ISTQB: boundary value / equivalence partitioning applied) ---
-    # Equivalence classes considered: empty string, missing field, valid string,
-    # excessively long string (boundary check).
     if not title:
         return _response(400, {"error": "Field 'title' is required and cannot be empty"})
 
@@ -48,6 +45,11 @@ def handler(event, context):
 def _response(status_code, body_dict):
     return {
         "statusCode": status_code,
-        "headers": {"Content-Type": "application/json"},
+        "headers": {
+            "Content-Type": "application/json",
+            "Strict-Transport-Security": "max-age=63072000; includeSubDomains",
+            "X-Content-Type-Options": "nosniff",
+            "Cross-Origin-Resource-Policy": "cross-origin",
+        },
         "body": json.dumps(body_dict),
     }
