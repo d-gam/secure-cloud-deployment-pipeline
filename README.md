@@ -1,3 +1,4 @@
+
 # Secure Cloud Deployment Pipeline
 
 A portfolio project combining cloud engineering, QA automation, and security testing —
@@ -204,6 +205,106 @@ into a GitHub Actions workflow so tests run automatically on every push.
 **Next**: run the Pytest suite locally to confirm everything passes, then write a GitHub Actions
 workflow so tests (and later, the security scan) run automatically on every push — no more
 manual `pytest` runs needed.
+
+---
+
+### Step 9 — First local Pytest run against the live API (✅ done)
+
+Ran the full suite locally against the live deployed API:
+
+```
+12 passed in 6.44s
+```
+
+All test classes passed cleanly:
+- `TestCreateTodoEquivalencePartitioning` (4 tests) — valid title, empty title, missing field,
+  whitespace-only title
+- `TestCreateTodoBoundaryValueAnalysis` (3 tests) — 199, 200, and 201 character boundaries
+- `TestListTodos` (2 tests) — list returns created item, list returns a JSON array
+- `TestDeleteTodo` (3 tests) — delete succeeds, deleted item disappears from list, deleting a
+  non-existent id returns 404 rather than silently succeeding
+
+This confirms the API behaves correctly under both valid and invalid input, and that the test
+suite itself is reliable before wiring it into CI/CD — a good practice, since automating a
+broken or flaky test suite just automates confusion.
+
+**Next**: write a GitHub Actions workflow (`.github/workflows/`) so this suite runs automatically
+on every push to `main`, without any manual `pytest` command needed.
+
+---
+
+### Step 10 — CI/CD: GitHub Actions workflow (✅ done)
+
+Added `.github/workflows/test.yml` — a workflow that automatically runs the full Pytest suite on:
+- Every push to `main`
+- Every pull request targeting `main` (catches issues before merge, not just after)
+
+**Scope decision**: kept this workflow to tests-only for now, running against the already-deployed
+API, rather than also running `terraform apply` on every push. Combining automated infrastructure
+changes with automated testing is a reasonable next step, but starting with test automation alone
+is simpler to reason about and safer while still learning the CI/CD pattern.
+
+The workflow:
+1. Checks out the repo code
+2. Sets up Python 3.12
+3. Installs test dependencies from `tests/requirements.txt`
+4. Runs `pytest tests/ -v` against the live API
+
+The API URL is set directly as an environment variable in the workflow file rather than a GitHub
+Secret, since it's a public endpoint rather than sensitive data — documented this distinction in
+the workflow file itself as a note for future secrets (e.g. if the project later needs AWS
+credentials in CI, those would go in **Settings → Secrets and Variables → Actions**).
+
+**Next**: push this workflow to GitHub and watch it run automatically in the **Actions** tab —
+this closes the loop on the "Secure Cloud Deployment Pipeline": code change → automated test →
+visible pass/fail result, all without manual intervention.
+
+---
+
+### Step 11 — First automated CI run: pipeline complete (✅ done)
+
+Pushed the workflow to GitHub. Hit one real-world snag worth documenting: the initial push was
+**rejected by GitHub** with `refusing to allow a Personal Access Token to create or update
+workflow ... without 'workflow' scope` — GitHub requires a token to explicitly carry the
+`workflow` scope to push files inside `.github/workflows/`, as a security measure since these
+files can execute code. Regenerated the PAT with both `repo` and `workflow` scopes, cleared the
+old cached credential from macOS Keychain, and pushed again successfully.
+
+**Result**: the "Run API Tests" workflow ran automatically in GitHub Actions, triggered purely by
+the `git push` — **passed in 22 seconds**, no manual `pytest` command involved.
+
+### 🎯 Project milestone reached
+
+The full pipeline is now live and closed end-to-end:
+
+```
+Code change → git push → GitHub Actions triggers automatically
+    → Pytest suite runs against the live API → pass/fail visible in the Actions tab
+```
+
+Combined with everything built in Steps 0–10, this project now demonstrates, with a working
+public repository as evidence:
+
+- **Infrastructure as Code** (Terraform: DynamoDB, Lambda, API Gateway, IAM — all provisioned
+  from code, not clicked through a console)
+- **Cloud engineering** (serverless AWS architecture, least-privilege IAM, environment-agnostic
+  Lambda code, €0 cost design)
+- **QA / testing** (ISTQB techniques — equivalence partitioning, boundary value analysis —
+  applied to a real automated test suite, not just theory)
+- **CI/CD** (GitHub Actions running tests automatically on every push)
+- **Real-world troubleshooting**, documented as it happened rather than hidden: card
+  verification issues, credential/PAT scope problems, file management mishaps — all resolved
+  and logged here as part of the build diary
+
+**Repository**: [github.com/d-gam/secure-cloud-deployment-pipeline](https://github.com/d-gam/secure-cloud-deployment-pipeline)
+**Live API**: `https://rf90i1a453.execute-api.eu-west-1.amazonaws.com`
+
+### Possible next steps (not yet started)
+- OWASP ZAP baseline security scan, wired into the same GitHub Actions workflow
+- Scope down the IAM role further (currently one shared execution role for all 3 Lambdas —
+  could split into 3 roles, each with only the single permission that specific function needs)
+- Add a `terraform apply` stage to the CI/CD pipeline for full automated deployment
+- Add a simple front-end (static HTML/JS) hosted on S3, so the API has a visual demo
 
 ---
 
