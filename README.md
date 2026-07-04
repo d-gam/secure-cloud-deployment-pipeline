@@ -441,6 +441,38 @@ detail.
 
 ---
 
+### Step 16 — Clean scan confirmed: security remediation complete (✅ done)
+
+Final ZAP scan against the CloudFront domain: **0 High, 0 Medium, 0 Low, 3 Informational.**
+
+All three original Low findings (Cross-Origin-Resource-Policy, HSTS, X-Content-Type-Options) are
+fully resolved — including on the previously-broken undefined paths, confirming the CloudFront
+fix closed the gap completely rather than partially. The remaining 3 Informational notes relate
+to caching headers, expected and appropriate to leave as-is for a dynamic API where responses
+must always reflect current state.
+
+### 🔒 Security workflow, end to end
+
+This is a complete, honest example of a real security remediation cycle — not just running a
+tool once and reporting a clean bill of health, but the full arc:
+
+1. **Scan** → found 3 Low findings (missing security headers)
+2. **Fix** → added headers in Lambda response code
+3. **Verify** → re-scanned, 2 of 3 resolved, 1 persisted on paths outside the application's reach
+4. **Investigate** → root-caused the remaining finding to a structural limitation (undefined
+   routes never reach Lambda code)
+5. **Architect a real fix** → added CloudFront with an edge-level response headers policy,
+   rather than accepting the gap or hiding it
+6. **Re-verify** → confirmed with `curl` before re-scanning
+7. **Final scan** → fully clean result
+
+This progression — including the deviation from ZAP's literal header recommendation once, and
+the mid-project architecture change once — is arguably more valuable to show an employer than a
+scan that was clean on the first attempt, since it demonstrates actual security reasoning rather
+than just running a tool.
+
+---
+
 ## Cost Safety Notes
 - AWS Budget alert set at $1 threshold (to be configured in Step 1)
 - `terraform destroy` run between active demo/work sessions
