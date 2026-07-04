@@ -1,4 +1,3 @@
-
 # Secure Cloud Deployment Pipeline
 
 A portfolio project combining cloud engineering, QA automation, and security testing —
@@ -305,6 +304,35 @@ public repository as evidence:
   could split into 3 roles, each with only the single permission that specific function needs)
 - Add a `terraform apply` stage to the CI/CD pipeline for full automated deployment
 - Add a simple front-end (static HTML/JS) hosted on S3, so the API has a visual demo
+
+---
+
+### Step 12 — Security scanning: OWASP ZAP baseline scan (✅ done)
+
+Added `.github/workflows/security-scan.yml` — runs the industry-standard **OWASP ZAP baseline
+scan** against the live API on every push to `main`, plus a manual trigger option
+(`workflow_dispatch`) from the Actions tab.
+
+**Design decisions and honest limitations documented here:**
+- Kept as a **separate workflow file** from `test.yml`, so a scan result doesn't get confused
+  with a test result — they check different things and can fail independently.
+- Used `-I` (informational mode: don't fail the build on findings) rather than treating this
+  as a hard release gate. This is a deliberate choice for a learning/portfolio project — the
+  goal here is to *see and understand* what ZAP reports, not to silently block pushes. In a
+  real production pipeline, high-severity findings would typically block deployment instead.
+- **Known limitation, worth understanding rather than hiding**: ZAP's baseline scan is
+  originally designed to crawl and analyze **HTML web pages**. This project is a pure JSON API
+  with no HTML front-end, so the scan has less surface to work with than it would on a
+  traditional website — expect fewer findings than a full web app scan would produce. This
+  doesn't make the scan pointless: it still checks for missing security headers, TLS/HTTPS
+  configuration, and basic HTTP-level issues, and understanding *why* a tool behaves
+  differently on different target types is itself a real security skill.
+- The scan report (HTML) is uploaded as a downloadable **workflow artifact**, so results are
+  reviewable after each run without digging through raw logs.
+
+**Next**: review the first scan report once it runs, and if time allows, add a small S3-hosted
+static front-end later — that would give ZAP's spider actual HTML pages to crawl, producing a
+more representative security scan result to talk about in interviews.
 
 ---
 
