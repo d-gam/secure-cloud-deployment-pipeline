@@ -17,7 +17,7 @@ jobs:
       - name: Run OWASP ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.12.0
         with:
-          target: "https://rf90i1a453.execute-api.eu-west-1.amazonaws.com/todos"
+          target: "https://dhf0667wobo63.cloudfront.net/todos"
           cmd_options: "-j -I"
 
       - name: Upload ZAP scan report

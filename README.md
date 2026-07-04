@@ -368,6 +368,79 @@ documented, with the reasoning behind the fix, not just the fix itself.
 
 ---
 
+### Step 14 — Verifying the fix, and a deeper structural finding (✅ done)
+
+Re-ran the ZAP scan after deploying the header fixes. Result: **Cross-Origin-Resource-Policy and
+X-Content-Type-Options findings fully resolved.** The Strict-Transport-Security (HSTS) finding
+dropped from 5 instances to 4, but didn't disappear entirely — worth investigating why rather
+than assuming the fix was incomplete.
+
+**Root cause**: the 4 remaining HSTS instances were all on paths never defined in the API
+(`/`, `/favicon.ico`, `/robots.txt`, `/sitemap.xml`). These requests never reach Lambda code at
+all — API Gateway returns its own built-in 404 for undefined routes before any application code
+runs, so there's no way to attach a header to that response from inside a Lambda function. This
+is a genuine structural limitation of a "bare" serverless API, not a bug in the fix.
+
+**Decision**: rather than treating this as an acceptable gap, added a **CloudFront distribution**
+in front of API Gateway — the standard, production-grade solution to this exact problem.
+
+- **`terraform/cloudfront.tf`**:
+  - An `aws_cloudfront_response_headers_policy` centralizing the security headers (HSTS,
+    X-Content-Type-Options, Cross-Origin-Resource-Policy) so they're enforced **at the edge**,
+    applied to every response that passes through CloudFront — including error responses that
+    never reach the application, closing the exact gap found above.
+  - An `aws_cloudfront_distribution` using API Gateway as a custom origin, HTTPS-only,
+    `PriceClass_100` (cheapest tier, sufficient for a portfolio project, keeps cost at €0 within
+    CloudFront's free tier).
+  - Caching intentionally disabled (`min_ttl`/`default_ttl`/`max_ttl` = 0) — this is a dynamic
+    API where `GET /todos` must always reflect current state, not a static site CloudFront would
+    normally cache aggressively.
+- Added `cloudfront_domain_name` output — this becomes the new public entry point to the API
+  going forward, instead of the raw API Gateway URL.
+
+**Broader takeaway worth mentioning in interviews**: CloudFront + API Gateway is a very common
+production pattern (adds edge caching, custom domains, and WAF integration potential later) —
+this wasn't just "fixing a scan finding," it's adopting a standard architecture specifically
+because the simpler setup had a real, explainable limitation.
+
+**Note**: CloudFront distributions take 10-20 minutes to fully deploy globally, unlike the other
+resources in this project which deployed in seconds — documenting this since it's a genuinely
+different operational characteristic worth knowing about.
+
+**Next**: deploy the CloudFront distribution, update the ZAP scan target to the new CloudFront
+URL (the real public entry point), and re-run the scan to confirm all Low findings are gone.
+
+---
+
+### Step 15 — CloudFront verified, ZAP re-targeted (✅ done)
+
+Deployed the CloudFront distribution (`terraform apply` — 2 resources added: the response
+headers policy and the distribution itself). Confirmed the fix directly with `curl` before
+touching the scan again:
+
+| Path | Status | Security headers present? |
+|---|---|---|
+| `/todos` (defined route) | 200 | ✅ Yes |
+| `/` (undefined route) | 404 | ✅ Yes — this is the fix |
+| `/favicon.ico` (undefined route) | 404 | ✅ Yes — this is the fix |
+
+This confirms CloudFront is attaching the security headers **at the edge**, to every response
+that passes through it — including the 404s that previously had no headers because they never
+reached Lambda code. The structural gap found in Step 14 is now closed architecturally, not
+worked around.
+
+**New public entry point**: `https://dhf0667wobo63.cloudfront.net` — this replaces the raw API
+Gateway URL as the "front door" to the API going forward. The API Gateway URL still works
+directly (it's the CloudFront origin), but CloudFront is now the recommended way to reach it.
+
+Updated `.github/workflows/security-scan.yml` to scan the CloudFront domain instead of the raw
+API Gateway URL — testing the *actual* public entry point rather than an internal implementation
+detail.
+
+**Next**: push and confirm a fully clean ZAP scan (0 Low findings) against the new target.
+
+---
+
 ## Cost Safety Notes
 - AWS Budget alert set at $1 threshold (to be configured in Step 1)
 - `terraform destroy` run between active demo/work sessions
