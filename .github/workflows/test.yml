@@ -1,0 +1,36 @@
+name: Run API Tests
+
+# Trigger: runs automatically on every push to main, and on every pull request
+# targeting main — catches issues before they're merged, not just after.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Pytest API test suite
+    runs-on: ubuntu-latest
+
+    # The API URL is not a secret (it's a public endpoint), so it's safe to set directly
+    # here. If this project later includes credentials or anything sensitive, those would
+    # go in GitHub repo Settings > Secrets and Variables > Actions instead, and be
+    # referenced as ${{ secrets.SECRET_NAME }}.
+    env:
+      API_URL: https://rf90i1a453.execute-api.eu-west-1.amazonaws.com
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: pip install -r tests/requirements.txt
+
+      - name: Run Pytest suite against live API
+        run: pytest tests/ -v
